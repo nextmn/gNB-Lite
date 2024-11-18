@@ -11,15 +11,20 @@ import (
 )
 
 type Setup struct {
-	config *config.GNBConfig
+	config           *config.GNBConfig
+	httpServerEntity *HttpServerEntity
 }
 
 func NewSetup(config *config.GNBConfig) *Setup {
 	return &Setup{
-		config: config,
+		config:           config,
+		httpServerEntity: NewHttpServerEntity(config.Control.BindAddr),
 	}
 }
 func (s *Setup) Init(ctx context.Context) error {
+	if err := s.httpServerEntity.Start(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -35,5 +40,6 @@ func (s *Setup) Run(ctx context.Context) error {
 }
 
 func (s *Setup) Exit() error {
+	s.httpServerEntity.Stop()
 	return nil
 }
