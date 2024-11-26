@@ -9,6 +9,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/nextmn/json-api/healthcheck"
@@ -18,19 +19,31 @@ import (
 )
 
 type HttpServerEntity struct {
-	srv *http.Server
+	srv   *http.Server
+	ps    *PduSessions
+	radio *Radio
 }
 
-func NewHttpServerEntity(bindAddr string) *HttpServerEntity {
+func NewHttpServerEntity(bindAddr netip.AddrPort, radio *Radio, ps *PduSessions) *HttpServerEntity {
 	// TODO: gin.SetMode(gin.DebugMode) / gin.SetMode(gin.ReleaseMode) depending on log level
 	r := gin.Default()
 	r.GET("/status", Status)
+
+	// Radio
+	r.POST("/radio/peer", radio.Peer)
+
+	// Pdu Sessions
+	r.POST("/ps/establishment-request", ps.EstablishmentRequest)
+	r.POST("/ps/n2-establishment-request", ps.N2EstablishmentRequest)
+
 	logrus.WithFields(logrus.Fields{"http-addr": bindAddr}).Info("HTTP Server created")
 	e := HttpServerEntity{
 		srv: &http.Server{
-			Addr:    bindAddr,
+			Addr:    bindAddr.String(),
 			Handler: r,
 		},
+		ps:    ps,
+		radio: radio,
 	}
 	return &e
 }

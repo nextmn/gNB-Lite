@@ -12,30 +12,9 @@ If you don't need to use handover procedures, consider using [UERANSIM](https://
 - golang
 - make (optional)
 
-### Runtime dependencies
-- iproute2
-- iptables
-
-
 ### Build and install
 Simply run `make build` and `make install`.
 
-### Docker
-If you plan using NextMN-gNB Lite with Docker:
-- The container required the `NET_ADMIN` capability;
-- - The container required the forwarding to be enabled (not enabled by the gNB itself);
-- The tun interface (`/dev/net/tun`) must be available in the container.
-
-This can be done in `docker-compose.yaml` by defining the following for the service:
-
-```yaml
-cap_add:
-    - NET_ADMIN
-devices:
-    - "/dev/net/tun"
-sysctls:
-    - net.ipv4.ip_forward=1
-```
 
 ## Author
 Louis Royer
