@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 // SPDX-License-Identifier: MIT
 
-package app
+package radio
 
 import (
 	"bytes"

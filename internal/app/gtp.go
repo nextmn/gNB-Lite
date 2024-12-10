@@ -10,6 +10,9 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/nextmn/gnb-lite/internal/radio"
+	"github.com/nextmn/gnb-lite/internal/session"
+
 	"github.com/sirupsen/logrus"
 	"github.com/wmnsk/go-gtp/gtpv1"
 	"github.com/wmnsk/go-gtp/gtpv1/message"
@@ -39,7 +42,7 @@ func (s *Setup) StartGtpUProtocolEntity(ctx context.Context, ipAddress netip.Add
 }
 
 // handle GTP PDU (Downlink)
-func tpduHandler(c gtpv1.Conn, senderAddr net.Addr, msg message.Message, psMan *PduSessionsManager, rDaemon *RadioDaemon) error {
+func tpduHandler(c gtpv1.Conn, senderAddr net.Addr, msg message.Message, psMan *session.PduSessionsManager, rDaemon *radio.RadioDaemon) error {
 	teid := msg.TEID()
 	ue, err := psMan.GetUECtrl(teid)
 	if err != nil {

@@ -3,13 +3,15 @@
 // found in the LICENSE file.
 // SPDX-License-Identifier: MIT
 
-package app
+package radio
 
 import (
 	"context"
 	"fmt"
 	"net"
 	"net/netip"
+
+	"github.com/nextmn/gnb-lite/internal/session"
 
 	"github.com/nextmn/json-api/jsonapi"
 
@@ -24,11 +26,11 @@ type RadioDaemon struct {
 	DlQueue            chan DLPkt
 	radio              *Radio
 	gnbRanAddr         netip.AddrPort
-	PduSessionsManager *PduSessionsManager
+	PduSessionsManager *session.PduSessionsManager
 	srv                *net.UDPConn
 }
 
-func NewRadioDaemon(radio *Radio, psMan *PduSessionsManager, gnbRanAddr netip.AddrPort) *RadioDaemon {
+func NewRadioDaemon(radio *Radio, psMan *session.PduSessionsManager, gnbRanAddr netip.AddrPort) *RadioDaemon {
 	return &RadioDaemon{
 		DlQueue:            make(chan DLPkt),
 		radio:              radio,

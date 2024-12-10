@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 // SPDX-License-Identifier: MIT
 
-package app
+package session
 
 import (
 	"context"
@@ -20,6 +20,8 @@ import (
 	"github.com/wmnsk/go-gtp/gtpv1"
 	"github.com/wmnsk/go-gtp/gtpv1/message"
 )
+
+const GTPU_PORT = 2152
 
 type PduSessionsManager struct {
 	sync.Mutex
