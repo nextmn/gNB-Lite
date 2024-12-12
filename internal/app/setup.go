@@ -7,8 +7,10 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"github.com/nextmn/gnb-lite/internal/config"
+	"github.com/nextmn/gnb-lite/internal/gtp"
 	"github.com/nextmn/gnb-lite/internal/radio"
 	"github.com/nextmn/gnb-lite/internal/session"
 )
@@ -19,6 +21,7 @@ type Setup struct {
 	radio            *radio.Radio
 	rDaemon          *radio.RadioDaemon
 	psMan            *session.PduSessionsManager
+	gtp              *gtp.Gtp
 }
 
 func NewSetup(config *config.GNBConfig) *Setup {
@@ -32,33 +35,30 @@ func NewSetup(config *config.GNBConfig) *Setup {
 		radio:            r,
 		rDaemon:          rDaemon,
 		psMan:            psMan,
+		gtp:              gtp.NewGtp(config.Gtp, psMan, rDaemon),
 	}
 }
 func (s *Setup) Init(ctx context.Context) error {
-	if err := s.rDaemon.Start(ctx); err != nil {
-		return err
-	}
-	if err := s.StartGtpUProtocolEntity(ctx, s.config.Gtp); err != nil {
-		return err
-	}
-	if err := s.httpServerEntity.Start(); err != nil {
-		return err
-	}
 	return nil
 }
 
 func (s *Setup) Run(ctx context.Context) error {
-	defer s.Exit()
-	if err := s.Init(ctx); err != nil {
+	if err := s.rDaemon.Start(ctx); err != nil {
+		return err
+	}
+	if err := s.gtp.Start(ctx); err != nil {
+		return err
+	}
+	if err := s.httpServerEntity.Start(ctx); err != nil {
 		return err
 	}
 	select {
 	case <-ctx.Done():
+		ctxShutdown, cancel := context.WithTimeout(ctx, 1*time.Second)
+		defer cancel()
+		s.httpServerEntity.WaitShutdown(ctxShutdown)
+		s.gtp.WaitShutdown(ctxShutdown)
+		s.rDaemon.WaitShutdown(ctxShutdown)
 		return nil
 	}
-}
-
-func (s *Setup) Exit() error {
-	s.httpServerEntity.Stop()
-	return nil
 }

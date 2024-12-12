@@ -28,6 +28,7 @@ type RadioDaemon struct {
 	gnbRanAddr         netip.AddrPort
 	PduSessionsManager *session.PduSessionsManager
 	srv                *net.UDPConn
+	closed             chan struct{}
 }
 
 func NewRadioDaemon(radio *Radio, psMan *session.PduSessionsManager, gnbRanAddr netip.AddrPort) *RadioDaemon {
@@ -36,6 +37,7 @@ func NewRadioDaemon(radio *Radio, psMan *session.PduSessionsManager, gnbRanAddr 
 		radio:              radio,
 		PduSessionsManager: psMan,
 		gnbRanAddr:         gnbRanAddr,
+		closed:             make(chan struct{}),
 	}
 }
 
@@ -95,8 +97,18 @@ func (r *RadioDaemon) Start(ctx context.Context) error {
 		return nil
 	}(ctx, srv)
 	go func(ctx context.Context, srv *net.UDPConn) {
+		defer close(r.closed)
 		defer srv.Close()
 		r.runUplinkDaemon(ctx, srv)
 	}(ctx, srv)
 	return nil
+}
+
+func (r *RadioDaemon) WaitShutdown(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.closed:
+		return nil
+	}
 }
