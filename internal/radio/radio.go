@@ -7,6 +7,7 @@ package radio
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -27,6 +28,9 @@ type Radio struct {
 	Control   jsonapi.ControlURI
 	Data      netip.AddrPort
 	UserAgent string
+
+	// not exported because must not be modified
+	ctx context.Context
 }
 
 func NewRadio(control jsonapi.ControlURI, data netip.AddrPort, userAgent string) *Radio {
@@ -37,6 +41,20 @@ func NewRadio(control jsonapi.ControlURI, data netip.AddrPort, userAgent string)
 		Data:      data,
 		UserAgent: userAgent,
 	}
+}
+
+func (r *Radio) Init(ctx context.Context) error {
+	if ctx == nil {
+		return ErrNilCtx
+	}
+	r.ctx = ctx
+	return nil
+}
+func (r *Radio) Context() context.Context {
+	if r.ctx != nil {
+		return r.ctx
+	}
+	return context.Background()
 }
 
 func (r *Radio) Write(pkt []byte, srv *net.UDPConn, ue jsonapi.ControlURI) error {
@@ -59,12 +77,17 @@ func (r *Radio) Peer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, jsonapi.MessageWithError{Message: "could not deserialize", Error: err})
 		return
 	}
+	go r.HandlePeer(peer)
+	c.JSON(http.StatusAccepted, jsonapi.Message{Message: "please refer to logs for more information"})
+}
+
+func (r *Radio) HandlePeer(peer n1n2.RadioPeerMsg) {
+	ctx := r.Context()
 	r.peerMap.Store(peer.Control, peer.Data)
 	logrus.WithFields(logrus.Fields{
 		"peer-control": peer.Control.String(),
 		"peer-ran":     peer.Data,
 	}).Info("New peer radio link")
-	c.Status(http.StatusNoContent)
 	msg := n1n2.RadioPeerMsg{
 		Control: r.Control,
 		Data:    r.Data,
@@ -72,24 +95,19 @@ func (r *Radio) Peer(c *gin.Context) {
 
 	reqBody, err := json.Marshal(msg)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could not marshal json", Error: err})
+		logrus.WithError(err).Error("Could not Marshal n1n2.RadioPeerMsg")
 		return
 	}
-	req, err := http.NewRequestWithContext(c, http.MethodPost, peer.Control.JoinPath("radio/peer").String(), bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, peer.Control.JoinPath("radio/peer").String(), bytes.NewBuffer(reqBody))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could not create request", Error: err})
+		logrus.WithError(err).Error("Could not create radio/peer request")
 		return
 	}
 	req.Header.Set("User-Agent", r.UserAgent)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	resp, err := r.Client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "no http response", Error: err})
+	if _, err := r.Client.Do(req); err != nil {
+		logrus.WithError(err).Error("Could not send radio/peer request")
 		return
 	}
-	defer resp.Body.Close()
-
 	// TODO: handle ue failure
-
-	c.Status(http.StatusNoContent)
 }

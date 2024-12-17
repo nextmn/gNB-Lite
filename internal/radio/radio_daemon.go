@@ -77,6 +77,12 @@ func (r *RadioDaemon) WriteDownlink(payload []byte, ue jsonapi.ControlURI) error
 }
 
 func (r *RadioDaemon) Start(ctx context.Context) error {
+	if ctx == nil {
+		return ErrNilCtx
+	}
+	if err := r.radio.Init(ctx); err != nil {
+		return err
+	}
 	srv, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(r.gnbRanAddr))
 	if err != nil {
 		return err

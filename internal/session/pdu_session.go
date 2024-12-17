@@ -7,6 +7,7 @@ package session
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/netip"
@@ -27,6 +28,9 @@ type PduSessions struct {
 	Cp             jsonapi.ControlURI
 	GnbGtp         netip.Addr
 	manager        *PduSessionsManager
+
+	// not exported because must not be modified
+	ctx context.Context
 }
 
 func NewPduSessions(control jsonapi.ControlURI, cp jsonapi.ControlURI, manager *PduSessionsManager, userAgent string, gnbGtp netip.Addr) *PduSessions {
@@ -42,6 +46,21 @@ func NewPduSessions(control jsonapi.ControlURI, cp jsonapi.ControlURI, manager *
 
 }
 
+func (p *PduSessions) Init(ctx context.Context) error {
+	if ctx == nil {
+		return ErrNilCtx
+	}
+	p.ctx = ctx
+	return nil
+}
+
+func (p *PduSessions) Context() context.Context {
+	if p.ctx != nil {
+		return p.ctx
+	}
+	return context.Background()
+}
+
 // request from UE
 func (p *PduSessions) EstablishmentRequest(c *gin.Context) {
 	// get PseReq
@@ -51,30 +70,32 @@ func (p *PduSessions) EstablishmentRequest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, jsonapi.MessageWithError{Message: "could not deserialize", Error: err})
 		return
 	}
-
 	logrus.WithFields(logrus.Fields{
 		"ue": ps.Ue.String(),
 	}).Info("New PDU Session establishment Request")
+	go p.HandleEstablishmentRequest(ps)
+	c.JSON(http.StatusAccepted, jsonapi.Message{Message: "please refer to logs for more information"})
+}
 
+func (p *PduSessions) HandleEstablishmentRequest(ps n1n2.PduSessionEstabReqMsg) {
+	ctx := p.Context()
 	// forward to cp
 	reqBody, err := json.Marshal(ps)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could not marshal json", Error: err})
+		logrus.WithError(err).Error("Could not marshal n1n2.PduSessionEstabReqMsg")
 		return
 	}
-	req, err := http.NewRequestWithContext(c, http.MethodPost, p.Cp.JoinPath("ps/establishment-request").String(), bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.Cp.JoinPath("ps/establishment-request").String(), bytes.NewBuffer(reqBody))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could not create request", Error: err})
+		logrus.WithError(err).Error("Could not create ps/establishment-request")
 		return
 	}
 	req.Header.Set("User-Agent", p.UserAgent)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	resp, err := p.Client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "no http response", Error: err})
+	if _, err := p.Client.Do(req); err != nil {
+		logrus.WithError(err).Error("Could not send ps/establishment-request")
 		return
 	}
-	defer resp.Body.Close()
 }
 
 // request from CP
@@ -90,32 +111,37 @@ func (p *PduSessions) N2EstablishmentRequest(c *gin.Context) {
 		"upf":         ps.Upf,
 		"uplink-teid": ps.UplinkTeid,
 	}).Info("New PDU Session establishment Request")
+	go p.HandleN2EstablishmentRequest(ps)
+	c.JSON(http.StatusAccepted, jsonapi.Message{Message: "please refer to logs for more information"})
+}
+
+func (p *PduSessions) HandleN2EstablishmentRequest(ps n1n2.N2PduSessionReqMsg) {
+	ctx := p.Context()
 	// allocate downlink teid
-	downlinkTeid, err := p.manager.NewPduSession(c, ps.UeInfo.Addr, ps.UeInfo.Header.Ue, ps.Upf, ps.UplinkTeid)
+	downlinkTeid, err := p.manager.NewPduSession(ctx, ps.UeInfo.Addr, ps.UeInfo.Header.Ue, ps.Upf, ps.UplinkTeid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could create PDU Session", Error: err})
+		logrus.WithError(err).Error("Could create PDU Session")
 		return
 	}
 
 	// send PseAccept to UE
 	reqBody, err := json.Marshal(ps.UeInfo)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could not marshal json", Error: err})
+		logrus.WithError(err).Error("Could not marshal UeInfo")
 		return
 	}
-	req, err := http.NewRequestWithContext(c, http.MethodPost, ps.UeInfo.Header.Ue.JoinPath("ps/establishment-accept").String(), bytes.NewBuffer(reqBody))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ps.UeInfo.Header.Ue.JoinPath("ps/establishment-accept").String(), bytes.NewBuffer(reqBody))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could not create request", Error: err})
+		logrus.WithError(err).Error("Could not create request for ps/establishment-accept")
 		return
 	}
 	req.Header.Set("User-Agent", p.UserAgent)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	resp, err := p.Client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "no http response", Error: err})
+	if _, err := p.Client.Do(req); err != nil {
+		logrus.WithError(err).Error("Could not send ps/establishment-accept")
 		return
 	}
-	defer resp.Body.Close()
 
 	psresp := n1n2.N2PduSessionRespMsg{
 		UeInfo:       ps.UeInfo,
@@ -125,21 +151,19 @@ func (p *PduSessions) N2EstablishmentRequest(c *gin.Context) {
 	// send N2PsResp to CP (with dl fteid)
 	n2reqBody, err := json.Marshal(psresp)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could not marshal json", Error: err})
+		logrus.WithError(err).Error("Could not marshal n1n2.N2PduSessionRespMs")
 		return
 	}
-	req2, err := http.NewRequestWithContext(c, http.MethodPost, ps.Cp.JoinPath("ps/n2-establishment-response").String(), bytes.NewBuffer(n2reqBody))
+	req2, err := http.NewRequestWithContext(ctx, http.MethodPost, ps.Cp.JoinPath("ps/n2-establishment-response").String(), bytes.NewBuffer(n2reqBody))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "could not create request", Error: err})
+		logrus.WithError(err).Error("Could not create request for ps/n2-establishment-response")
 		return
 	}
 	req2.Header.Set("User-Agent", p.UserAgent)
 	req2.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	resp2, err := p.Client.Do(req2)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, jsonapi.MessageWithError{Message: "no http response", Error: err})
+	if _, err := p.Client.Do(req2); err != nil {
+		logrus.WithError(err).Error("Could not create send request for ps/n2-establishment-response")
 		return
 	}
-	defer resp2.Body.Close()
 
 }
