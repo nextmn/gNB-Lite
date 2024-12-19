@@ -31,7 +31,7 @@ func (r *Radio) Peer(c *gin.Context) {
 
 func (r *Radio) HandlePeer(peer n1n2.RadioPeerMsg) {
 	ctx := r.Context()
-	r.peerMap.Store(peer.Control, peer.Data)
+	r.peerMap.Store(peer.Control.String(), peer.Data)
 	logrus.WithFields(logrus.Fields{
 		"peer-control": peer.Control.String(),
 		"peer-ran":     peer.Data,

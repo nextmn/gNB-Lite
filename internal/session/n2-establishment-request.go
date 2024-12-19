@@ -27,8 +27,8 @@ func (p *PduSessions) N2EstablishmentRequest(c *gin.Context) {
 	}
 	logrus.WithFields(logrus.Fields{
 		"ue":          ps.UeInfo.Header.Ue.String(),
-		"upf":         ps.Upf,
-		"uplink-teid": ps.UplinkTeid,
+		"upf":         ps.UplinkFteid.Addr,
+		"uplink-teid": ps.UplinkFteid.Teid,
 	}).Info("New PDU Session establishment Request")
 	go p.HandleN2EstablishmentRequest(ps)
 	c.JSON(http.StatusAccepted, jsonapi.Message{Message: "please refer to logs for more information"})
@@ -37,9 +37,10 @@ func (p *PduSessions) N2EstablishmentRequest(c *gin.Context) {
 func (p *PduSessions) HandleN2EstablishmentRequest(ps n1n2.N2PduSessionReqMsg) {
 	ctx := p.Context()
 	// allocate downlink teid
-	downlinkTeid, err := p.manager.NewPduSession(ctx, ps.UeInfo.Addr, ps.UeInfo.Header.Ue, ps.Upf, ps.UplinkTeid)
+	downlinkFteid, err := p.manager.NewPduSession(ctx, ps.UeInfo.Addr, ps.UeInfo.Header.Ue, &ps.UplinkFteid)
 	if err != nil {
 		logrus.WithError(err).Error("Could create PDU Session")
+		// TODO: notify CP of the error
 		return
 	}
 
@@ -63,9 +64,8 @@ func (p *PduSessions) HandleN2EstablishmentRequest(ps n1n2.N2PduSessionReqMsg) {
 	}
 
 	psresp := n1n2.N2PduSessionRespMsg{
-		UeInfo:       ps.UeInfo,
-		Gnb:          p.GnbGtp,
-		DownlinkTeid: downlinkTeid,
+		UeInfo:        ps.UeInfo,
+		DownlinkFteid: *downlinkFteid,
 	}
 	// send N2PsResp to CP (with dl fteid)
 	n2reqBody, err := json.Marshal(psresp)

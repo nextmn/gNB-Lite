@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/nextmn/gnb-lite/internal/cli"
 	"github.com/nextmn/gnb-lite/internal/radio"
 	"github.com/nextmn/gnb-lite/internal/session"
 
@@ -29,9 +30,13 @@ type HttpServerEntity struct {
 }
 
 func NewHttpServerEntity(bindAddr netip.AddrPort, r *radio.Radio, ps *session.PduSessions) *HttpServerEntity {
+	c := cli.NewCli(r, ps)
 	// TODO: gin.SetMode(gin.DebugMode) / gin.SetMode(gin.ReleaseMode) depending on log level
 	h := gin.Default()
 	h.GET("/status", Status)
+
+	// CLI
+	c.Register(h)
 
 	// Radio
 	r.Register(h)

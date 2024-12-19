@@ -19,7 +19,7 @@ import (
 )
 
 type Radio struct {
-	peerMap   sync.Map // key:  UE Control URI, value: UE ran ip address
+	peerMap   sync.Map // key:  UE Control URI (string), value: UE ran ip address
 	Client    http.Client
 	Control   jsonapi.ControlURI
 	Data      netip.AddrPort
@@ -54,7 +54,7 @@ func (r *Radio) Context() context.Context {
 }
 
 func (r *Radio) Write(pkt []byte, srv *net.UDPConn, ue jsonapi.ControlURI) error {
-	ueRan, ok := r.peerMap.Load(ue)
+	ueRan, ok := r.peerMap.Load(ue.String())
 	if !ok {
 		logrus.Trace("Unknown UE")
 		return ErrUnknownUE

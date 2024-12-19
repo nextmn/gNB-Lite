@@ -25,19 +25,55 @@ const GTPU_PORT = 2152
 type PduSessionsManager struct {
 	sync.Mutex
 
-	Downlink map[uint32]jsonapi.ControlURI // teid: UE control uri
-	Uplink   map[netip.Addr]*Fteid         // ue 5G ip address: uplink fteid
-	GtpAddr  netip.Addr
-	upfs     map[netip.Addr]*gtpv1.UPlaneConn
+	Downlink        map[uint32]jsonapi.ControlURI // teid: UE control uri
+	ForwardDownlink map[uint32]*jsonapi.Fteid
+	Uplink          map[netip.Addr]*jsonapi.Fteid // ue 5G ip address: uplink fteid
+	GtpAddr         netip.Addr
+	upfs            map[netip.Addr]*gtpv1.UPlaneConn
 }
 
 func NewPduSessionsManager(gtpAddr netip.Addr) *PduSessionsManager {
 	return &PduSessionsManager{
-		Downlink: make(map[uint32]jsonapi.ControlURI),
-		Uplink:   make(map[netip.Addr]*Fteid),
-		GtpAddr:  gtpAddr,
-		upfs:     make(map[netip.Addr]*gtpv1.UPlaneConn),
+		Downlink:        make(map[uint32]jsonapi.ControlURI),
+		ForwardDownlink: make(map[uint32]*jsonapi.Fteid),
+		Uplink:          make(map[netip.Addr]*jsonapi.Fteid),
+		GtpAddr:         gtpAddr,
+		upfs:            make(map[netip.Addr]*gtpv1.UPlaneConn),
 	}
+}
+
+func (p *PduSessionsManager) ForwardUplink(ctx context.Context, pkt []byte, fteid *jsonapi.Fteid) error {
+	gpdu := message.NewHeaderWithExtensionHeaders(0x30, message.MsgTypeTPDU, fteid.Teid, 0, pkt, []*message.ExtensionHeader{}...)
+	b, err := gpdu.Marshal()
+	if err != nil {
+		return err
+	}
+	raddr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(fteid.Addr, GTPU_PORT))
+	uConn, ok := p.upfs[fteid.Addr]
+	if !ok {
+		laddr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(p.GtpAddr, 0))
+		uConn, err = gtpv1.DialUPlane(ctx, laddr, raddr)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"upf": raddr,
+			}).Error("Failure to dial UPF")
+			return err
+		}
+		p.upfs[fteid.Addr] = uConn
+		go func(ctx context.Context, uConn *gtpv1.UPlaneConn) error {
+			select {
+			case <-ctx.Done():
+				uConn.Close()
+				return ctx.Err()
+			}
+			return nil
+		}(ctx, uConn)
+	}
+	logrus.WithFields(logrus.Fields{
+		"fteid": fteid,
+	}).Trace("Forwarding packet to GTP")
+	_, err = uConn.WriteTo(b, raddr)
+	return err
 }
 
 func (p *PduSessionsManager) WriteUplink(ctx context.Context, pkt []byte) error {
@@ -62,8 +98,8 @@ func (p *PduSessionsManager) WriteUplink(ctx context.Context, pkt []byte) error 
 	if err != nil {
 		return err
 	}
-	uConn, ok := p.upfs[fteid.IpAddr]
-	raddr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(fteid.IpAddr, GTPU_PORT))
+	raddr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(fteid.Addr, GTPU_PORT))
+	uConn, ok := p.upfs[fteid.Addr]
 	if !ok {
 		laddr := net.UDPAddrFromAddrPort(netip.AddrPortFrom(p.GtpAddr, 0))
 		uConn, err = gtpv1.DialUPlane(ctx, laddr, raddr)
@@ -73,7 +109,7 @@ func (p *PduSessionsManager) WriteUplink(ctx context.Context, pkt []byte) error 
 			}).Error("Failure to dial UPF")
 			return err
 		}
-		p.upfs[fteid.IpAddr] = uConn
+		p.upfs[fteid.Addr] = uConn
 		go func(ctx context.Context, uConn *gtpv1.UPlaneConn) error {
 			select {
 			case <-ctx.Done():
@@ -98,12 +134,21 @@ func (p *PduSessionsManager) GetUECtrl(teid uint32) (jsonapi.ControlURI, error) 
 	return ueCtrl, nil
 }
 
+func (p *PduSessionsManager) GetForwarding(teid uint32) (*jsonapi.Fteid, error) {
+	fteid, ok := p.ForwardDownlink[teid]
+	if !ok {
+		return fteid, ErrForwardDownlinkNotFound
+	}
+	return fteid, nil
+}
+
 type Fteid struct {
 	IpAddr netip.Addr
 	Teid   uint32
 }
 
-func (p *PduSessionsManager) NewPduSession(ctx context.Context, ueIpAddr netip.Addr, ueControlURI jsonapi.ControlURI, upf netip.Addr, uplinkTeid uint32) (uint32, error) {
+// Returns the new DL TEID allocated
+func (p *PduSessionsManager) NewPduSession(ctx context.Context, ueIpAddr netip.Addr, ueControlURI jsonapi.ControlURI, uplinkFteid *jsonapi.Fteid) (*jsonapi.Fteid, error) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -111,13 +156,10 @@ func (p *PduSessionsManager) NewPduSession(ctx context.Context, ueIpAddr netip.A
 	defer cancel()
 	dlTeid, err := p.newTeidDl(ctxTimeout, ueControlURI)
 	if err != nil {
-		return dlTeid, err
+		return nil, err
 	}
-	p.Uplink[ueIpAddr] = &Fteid{
-		IpAddr: upf,
-		Teid:   uplinkTeid,
-	}
-	return dlTeid, err
+	p.Uplink[ueIpAddr] = uplinkFteid
+	return jsonapi.NewFteid(p.GtpAddr, dlTeid), err
 }
 
 // Warning: not thread safe

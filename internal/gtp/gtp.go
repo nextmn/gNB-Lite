@@ -42,7 +42,7 @@ func (gtp *Gtp) Start(ctx context.Context) error {
 	uConn := gtpv1.NewUPlaneConn(laddr)
 	uConn.DisableErrorIndication()
 	uConn.AddHandler(message.MsgTypeTPDU, func(c gtpv1.Conn, senderAddr net.Addr, msg message.Message) error {
-		return gtp.tpduHandler(c, senderAddr, msg)
+		return gtp.tpduHandler(ctx, c, senderAddr, msg)
 	})
 	go func(ctx context.Context) error {
 		defer close(gtp.closed)
@@ -59,8 +59,15 @@ func (gtp *Gtp) Start(ctx context.Context) error {
 }
 
 // handle GTP PDU (Downlink)
-func (gtp *Gtp) tpduHandler(c gtpv1.Conn, senderAddr net.Addr, msg message.Message) error {
+func (gtp *Gtp) tpduHandler(ctx context.Context, c gtpv1.Conn, senderAddr net.Addr, msg message.Message) error {
 	teid := msg.TEID()
+	// Try forwarding downlink (handover)
+	if fd, err := gtp.psMan.GetForwarding(teid); err == nil {
+		packet := msg.(*message.TPDU).Decapsulate()
+		return gtp.psMan.ForwardUplink(ctx, packet, fd)
+	}
+
+	// Try to forward to UE over radio
 	ue, err := gtp.psMan.GetUECtrl(teid)
 	if err != nil {
 		return err
