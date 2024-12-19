@@ -7,7 +7,6 @@ package radio
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/netip"
 
@@ -44,7 +43,7 @@ func NewRadioDaemon(radio *Radio, psMan *session.PduSessionsManager, gnbRanAddr 
 func (r *RadioDaemon) runUplinkDaemon(ctx context.Context, srv *net.UDPConn) error {
 	if srv == nil {
 		logrus.Error("nil server")
-		return fmt.Errorf("nil srv")
+		return ErrNilUdpConn
 	}
 	for {
 		select {
@@ -71,7 +70,7 @@ type DLPkt struct {
 
 func (r *RadioDaemon) WriteDownlink(payload []byte, ue jsonapi.ControlURI) error {
 	if r.srv == nil {
-		return fmt.Errorf("nil srv")
+		return ErrNilUdpConn
 	}
 	return r.radio.Write(payload, r.srv, ue)
 }
@@ -93,7 +92,7 @@ func (r *RadioDaemon) Start(ctx context.Context) error {
 	}).Info("Starting Radio Simulatior")
 	go func(ctx context.Context, srv *net.UDPConn) error {
 		if srv == nil {
-			return fmt.Errorf("nil srv")
+			return ErrNilUdpConn
 		}
 		select {
 		case <-ctx.Done():
