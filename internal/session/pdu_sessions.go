@@ -60,4 +60,8 @@ func (p *PduSessions) Context() context.Context {
 func (p *PduSessions) Register(e *gin.Engine) {
 	e.POST("/ps/establishment-request", p.EstablishmentRequest)
 	e.POST("/ps/n2-establishment-request", p.N2EstablishmentRequest)
+	e.POST("/ps/handover-request", p.HandoverRequest)
+	e.POST("/ps/handover-command", p.HandoverCommand)
+	e.POST("/ps/handover-confirm", p.HandoverConfirm)
+	e.POST("/ps/handover-notify", p.HandoverNotify)
 }
