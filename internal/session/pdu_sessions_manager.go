@@ -7,7 +7,6 @@ package session
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"net"
 	"net/netip"
@@ -44,11 +43,11 @@ func NewPduSessionsManager(gtpAddr netip.Addr) *PduSessionsManager {
 func (p *PduSessionsManager) WriteUplink(ctx context.Context, pkt []byte) error {
 	if len(pkt) < 20 {
 		logrus.Trace("too small to be an ipv4 packet")
-		return fmt.Errorf("Too small to be an ipv4 packet")
+		return ErrUnsupportedPDUType
 	}
 	if (pkt[0] >> 4) != 4 {
 		logrus.Trace("not an ipv4 packet")
-		return fmt.Errorf("Not an ipv4 packet")
+		return ErrUnsupportedPDUType
 	}
 	src := netip.AddrFrom4([4]byte{pkt[12], pkt[13], pkt[14], pkt[15]})
 	fteid, ok := p.Uplink[src]
@@ -56,7 +55,7 @@ func (p *PduSessionsManager) WriteUplink(ctx context.Context, pkt []byte) error 
 		logrus.WithFields(logrus.Fields{
 			"ue": src,
 		}).Trace("unknown UE")
-		return fmt.Errorf("Unknown UE")
+		return ErrPduSessionNotFound
 	}
 	gpdu := message.NewHeaderWithExtensionHeaders(0x30, message.MsgTypeTPDU, fteid.Teid, 0, pkt, []*message.ExtensionHeader{}...)
 	b, err := gpdu.Marshal()
@@ -94,7 +93,7 @@ func (p *PduSessionsManager) WriteUplink(ctx context.Context, pkt []byte) error 
 func (p *PduSessionsManager) GetUECtrl(teid uint32) (jsonapi.ControlURI, error) {
 	ueCtrl, ok := p.Downlink[teid]
 	if !ok {
-		return ueCtrl, fmt.Errorf("Unknown UE")
+		return ueCtrl, ErrPduSessionNotFound
 	}
 	return ueCtrl, nil
 }

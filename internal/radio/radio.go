@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
@@ -61,7 +60,7 @@ func (r *Radio) Write(pkt []byte, srv *net.UDPConn, ue jsonapi.ControlURI) error
 	ueRan, ok := r.peerMap.Load(ue)
 	if !ok {
 		logrus.Trace("Unknown UE")
-		return fmt.Errorf("Unknown UE")
+		return ErrUnknownUE
 	}
 
 	_, err := srv.WriteToUDPAddrPort(pkt, ueRan.(netip.AddrPort))

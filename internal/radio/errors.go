@@ -10,5 +10,7 @@ import (
 )
 
 var (
-	ErrNilCtx = errors.New("nil context")
+	ErrNilCtx     = errors.New("nil context")
+	ErrNilUdpConn = errors.New("nil UDP Connection")
+	ErrUnknownUE  = errors.New("Unknown UE")
 )
