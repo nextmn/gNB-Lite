@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/nextmn/gnb-lite/internal/cli"
 	"github.com/nextmn/gnb-lite/internal/radio"
 	"github.com/nextmn/gnb-lite/internal/session"
 
@@ -29,16 +30,19 @@ type HttpServerEntity struct {
 }
 
 func NewHttpServerEntity(bindAddr netip.AddrPort, r *radio.Radio, ps *session.PduSessions) *HttpServerEntity {
+	c := cli.NewCli(r, ps)
 	// TODO: gin.SetMode(gin.DebugMode) / gin.SetMode(gin.ReleaseMode) depending on log level
 	h := gin.Default()
 	h.GET("/status", Status)
 
+	// CLI
+	c.Register(h)
+
 	// Radio
-	h.POST("/radio/peer", r.Peer)
+	r.Register(h)
 
 	// Pdu Sessions
-	h.POST("/ps/establishment-request", ps.EstablishmentRequest)
-	h.POST("/ps/n2-establishment-request", ps.N2EstablishmentRequest)
+	ps.Register(h)
 
 	logrus.WithFields(logrus.Fields{"http-addr": bindAddr}).Info("HTTP Server created")
 	e := HttpServerEntity{

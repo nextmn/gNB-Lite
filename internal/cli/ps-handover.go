@@ -3,15 +3,17 @@
 // found in the LICENSE file.
 // SPDX-License-Identifier: MIT
 
-package session
+package cli
 
 import (
-	"errors"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
-var (
-	ErrNilCtx = errors.New("nil context")
+func (cli *Cli) PsHandover(c *gin.Context) {
+	c.Status(http.StatusNotImplemented)
+}
 
-	ErrUnsupportedPDUType = errors.New("Unsupported PDU type")
-	ErrPduSessionNotFound = errors.New("PDU Session not found")
-)
+func (cli *Cli) HandlePsHandover() {
+}
