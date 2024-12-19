@@ -34,11 +34,10 @@ func NewHttpServerEntity(bindAddr netip.AddrPort, r *radio.Radio, ps *session.Pd
 	h.GET("/status", Status)
 
 	// Radio
-	h.POST("/radio/peer", r.Peer)
+	r.Register(h)
 
 	// Pdu Sessions
-	h.POST("/ps/establishment-request", ps.EstablishmentRequest)
-	h.POST("/ps/n2-establishment-request", ps.N2EstablishmentRequest)
+	ps.Register(h)
 
 	logrus.WithFields(logrus.Fields{"http-addr": bindAddr}).Info("HTTP Server created")
 	e := HttpServerEntity{
