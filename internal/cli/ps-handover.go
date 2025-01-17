@@ -30,7 +30,7 @@ func (cli *Cli) PsHandover(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, jsonapi.MessageWithError{Message: "could not deserialize", Error: err})
 	}
 	go cli.HandlePsHandover(ps)
-	c.Status(http.StatusNotImplemented)
+	c.JSON(http.StatusAccepted, jsonapi.Message{Message: "please refer to logs for more information"})
 }
 
 func (cli *Cli) HandlePsHandover(ps PsHandover) {
