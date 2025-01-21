@@ -18,9 +18,10 @@ import (
 )
 
 type PsHandover struct {
-	UeCtrl    jsonapi.ControlURI `json:"ue-ctrl"`
-	GNBTarget jsonapi.ControlURI `json:"gnb-target"`
-	Sessions  []n1n2.Session     `json:"sessions"`
+	UeCtrl             jsonapi.ControlURI `json:"ue-ctrl"`
+	GNBTarget          jsonapi.ControlURI `json:"gnb-target"`
+	Sessions           []n1n2.Session     `json:"sessions"`
+	IndirectForwarding bool               `json:"indirect-forwarding"`
 }
 
 func (cli *Cli) PsHandover(c *gin.Context) {
@@ -40,9 +41,10 @@ func (cli *Cli) HandlePsHandover(ps PsHandover) {
 		SourcegNB: cli.PduSessions.Control,
 		Cp:        cli.PduSessions.Cp,
 		// Handover Required
-		Ue:        ps.UeCtrl,
-		Sessions:  ps.Sessions,
-		TargetgNB: ps.GNBTarget,
+		Ue:                 ps.UeCtrl,
+		Sessions:           ps.Sessions,
+		TargetgNB:          ps.GNBTarget,
+		IndirectForwarding: ps.IndirectForwarding,
 	}
 	reqBody, err := json.Marshal(hr)
 	if err != nil {
