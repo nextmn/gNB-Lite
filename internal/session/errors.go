@@ -10,8 +10,6 @@ import (
 )
 
 var (
-	ErrNilCtx = errors.New("nil context")
-
 	ErrUnsupportedPDUType      = errors.New("Unsupported PDU type")
 	ErrPduSessionNotFound      = errors.New("PDU Session not found")
 	ErrForwardDownlinkNotFound = errors.New("Forward Downlink rule not found")

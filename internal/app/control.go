@@ -58,7 +58,7 @@ func NewHttpServerEntity(bindAddr netip.AddrPort, r *radio.Radio, ps *session.Pd
 }
 
 func (e *HttpServerEntity) Start(ctx context.Context) error {
-	if err := e.ps.Init(ctx); err != nil {
+	if err := e.ps.InitContext(ctx); err != nil {
 		return err
 	}
 

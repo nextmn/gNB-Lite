@@ -6,10 +6,11 @@
 package session
 
 import (
-	"context"
 	"net/http"
 	"net/netip"
 	"sync"
+
+	"github.com/nextmn/gnb-lite/internal/common"
 
 	"github.com/nextmn/json-api/jsonapi"
 
@@ -17,6 +18,8 @@ import (
 )
 
 type PduSessions struct {
+	common.WithContext
+
 	PduSessionsMap sync.Map // key : UE 5G ip address; value: UE Control URI
 	UserAgent      string
 	Client         http.Client
@@ -24,9 +27,6 @@ type PduSessions struct {
 	Cp             jsonapi.ControlURI
 	GnbGtp         netip.Addr
 	manager        *PduSessionsManager
-
-	// not exported because must not be modified
-	ctx context.Context
 }
 
 func NewPduSessions(control jsonapi.ControlURI, cp jsonapi.ControlURI, manager *PduSessionsManager, userAgent string, gnbGtp netip.Addr) *PduSessions {
@@ -40,21 +40,6 @@ func NewPduSessions(control jsonapi.ControlURI, cp jsonapi.ControlURI, manager *
 		manager:        manager,
 	}
 
-}
-
-func (p *PduSessions) Init(ctx context.Context) error {
-	if ctx == nil {
-		return ErrNilCtx
-	}
-	p.ctx = ctx
-	return nil
-}
-
-func (p *PduSessions) Context() context.Context {
-	if p.ctx != nil {
-		return p.ctx
-	}
-	return context.Background()
 }
 
 func (p *PduSessions) Register(e *gin.Engine) {

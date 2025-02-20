@@ -6,11 +6,12 @@
 package radio
 
 import (
-	"context"
 	"net"
 	"net/http"
 	"net/netip"
 	"sync"
+
+	"github.com/nextmn/gnb-lite/internal/common"
 
 	"github.com/nextmn/json-api/jsonapi"
 
@@ -19,14 +20,13 @@ import (
 )
 
 type Radio struct {
+	common.WithContext
+
 	peerMap   sync.Map // key:  UE Control URI (string), value: UE ran ip address
 	Client    http.Client
 	Control   jsonapi.ControlURI
 	Data      netip.AddrPort
 	UserAgent string
-
-	// not exported because must not be modified
-	ctx context.Context
 }
 
 func NewRadio(control jsonapi.ControlURI, data netip.AddrPort, userAgent string) *Radio {
@@ -37,20 +37,6 @@ func NewRadio(control jsonapi.ControlURI, data netip.AddrPort, userAgent string)
 		Data:      data,
 		UserAgent: userAgent,
 	}
-}
-
-func (r *Radio) Init(ctx context.Context) error {
-	if ctx == nil {
-		return ErrNilCtx
-	}
-	r.ctx = ctx
-	return nil
-}
-func (r *Radio) Context() context.Context {
-	if r.ctx != nil {
-		return r.ctx
-	}
-	return context.Background()
 }
 
 func (r *Radio) Write(pkt []byte, srv *net.UDPConn, ue jsonapi.ControlURI) error {
