@@ -10,7 +10,7 @@ require (
 	github.com/nextmn/json-api v0.0.19
 	github.com/nextmn/logrus-formatter v0.0.1
 	github.com/sirupsen/logrus v1.9.3
-	github.com/urfave/cli/v2 v2.27.6
+	github.com/urfave/cli/v2 v2.27.7
 	github.com/wmnsk/go-gtp v0.8.12
 	gopkg.in/yaml.v3 v3.0.1
 )
