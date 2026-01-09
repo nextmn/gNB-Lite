@@ -43,7 +43,7 @@ func main() {
 				Name:      "config",
 				TakesFile: true,
 				Aliases:   []string{"c"},
-				Usage:     "load configuration from `FILE`",
+				Usage:     "Load configuration from `FILE`",
 				// XXX: https://github.com/urfave/cli/issues/2244
 				// Required:    true,
 				DefaultText: "${XDG_CONFIG_DIRS}/nextmn-gnb-lite/config.yaml",
