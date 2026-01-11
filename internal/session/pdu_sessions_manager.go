@@ -61,12 +61,9 @@ func (p *PduSessionsManager) ForwardUplink(ctx context.Context, pkt []byte, ftei
 		}
 		p.upfs[fteid.Addr] = uConn
 		go func(ctx context.Context, uConn *gtpv1.UPlaneConn) error {
-			select {
-			case <-ctx.Done():
-				uConn.Close()
-				return ctx.Err()
-			}
-			return nil
+			<-ctx.Done()
+			uConn.Close()
+			return ctx.Err()
 		}(ctx, uConn)
 	}
 	logrus.WithFields(logrus.Fields{
@@ -111,12 +108,9 @@ func (p *PduSessionsManager) WriteUplink(ctx context.Context, pkt []byte) error 
 		}
 		p.upfs[fteid.Addr] = uConn
 		go func(ctx context.Context, uConn *gtpv1.UPlaneConn) error {
-			select {
-			case <-ctx.Done():
-				uConn.Close()
-				return ctx.Err()
-			}
-			return nil
+			<-ctx.Done()
+			uConn.Close()
+			return ctx.Err()
 		}(ctx, uConn)
 	}
 	logrus.WithFields(logrus.Fields{

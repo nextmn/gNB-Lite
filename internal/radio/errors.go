@@ -11,5 +11,5 @@ import (
 
 var (
 	ErrNilUdpConn = errors.New("nil UDP Connection")
-	ErrUnknownUE  = errors.New("Unknown UE")
+	ErrUnknownUE  = errors.New("unknown UE")
 )

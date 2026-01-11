@@ -91,12 +91,9 @@ func (r *RadioDaemon) Start(ctx context.Context) error {
 		if srv == nil {
 			return ErrNilUdpConn
 		}
-		select {
-		case <-ctx.Done():
-			srv.Close()
-			return ctx.Err()
-		}
-		return nil
+		<-ctx.Done()
+		srv.Close()
+		return ctx.Err()
 	}(ctx, srv)
 	go func(ctx context.Context, srv *net.UDPConn) {
 		defer close(r.closed)

@@ -52,13 +52,11 @@ func (s *Setup) Run(ctx context.Context) error {
 	if err := s.httpServerEntity.Start(ctx); err != nil {
 		return err
 	}
-	select {
-	case <-ctx.Done():
-		ctxShutdown, cancel := context.WithTimeout(ctx, 1*time.Second)
-		defer cancel()
-		s.httpServerEntity.WaitShutdown(ctxShutdown)
-		s.gtp.WaitShutdown(ctxShutdown)
-		s.rDaemon.WaitShutdown(ctxShutdown)
-		return nil
-	}
+	<-ctx.Done()
+	ctxShutdown, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+	s.httpServerEntity.WaitShutdown(ctxShutdown)
+	s.gtp.WaitShutdown(ctxShutdown)
+	s.rDaemon.WaitShutdown(ctxShutdown)
+	return nil
 }
