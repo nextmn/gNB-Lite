@@ -42,7 +42,26 @@ func (s *Setup) Init(ctx context.Context) error {
 	return nil
 }
 
+func (s *Setup) waitShutdown(ctx context.Context) {
+	if s.httpServerEntity != nil {
+		s.httpServerEntity.WaitShutdown(ctx)
+	}
+	if s.rDaemon != nil {
+		s.rDaemon.WaitShutdown(ctx)
+	}
+	if s.gtp != nil {
+		s.gtp.WaitShutdown(ctx)
+	}
+}
+
 func (s *Setup) Run(ctx context.Context) error {
+	defer func() {
+
+		ctxShutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), 1*time.Second)
+		defer cancel()
+		s.waitShutdown(ctxShutdown)
+	}()
+
 	if err := s.rDaemon.Start(ctx); err != nil {
 		return err
 	}
@@ -52,11 +71,7 @@ func (s *Setup) Run(ctx context.Context) error {
 	if err := s.httpServerEntity.Start(ctx); err != nil {
 		return err
 	}
+
 	<-ctx.Done()
-	ctxShutdown, cancel := context.WithTimeout(ctx, 1*time.Second)
-	defer cancel()
-	s.httpServerEntity.WaitShutdown(ctxShutdown)
-	s.gtp.WaitShutdown(ctxShutdown)
-	s.rDaemon.WaitShutdown(ctxShutdown)
 	return nil
 }
