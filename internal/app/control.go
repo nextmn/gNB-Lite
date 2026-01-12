@@ -17,6 +17,7 @@ import (
 	"github.com/nextmn/gnb-lite/internal/session"
 
 	"github.com/nextmn/json-api/healthcheck"
+	"github.com/nextmn/logrus-formatter/ginlogger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -31,8 +32,10 @@ type HttpServerEntity struct {
 
 func NewHttpServerEntity(bindAddr netip.AddrPort, r *radio.Radio, ps *session.PduSessions) *HttpServerEntity {
 	c := cli.NewCli(r, ps)
-	// TODO: gin.SetMode(gin.DebugMode) / gin.SetMode(gin.ReleaseMode) depending on log level
-	h := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	h := gin.New()
+	h.Use(gin.Recovery())
+	h.Use(ginlogger.LoggingMiddleware)
 	h.GET("/status", Status)
 
 	// CLI
