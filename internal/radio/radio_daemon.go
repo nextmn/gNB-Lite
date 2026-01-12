@@ -60,7 +60,6 @@ func (r *RadioDaemon) runUplinkDaemon(ctx context.Context, srv *net.UDPConn) err
 			r.PduSessionsManager.WriteUplink(ctx, buf[:n])
 		}
 	}
-	return nil
 }
 
 type DLPkt struct {

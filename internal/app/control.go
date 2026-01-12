@@ -33,9 +33,7 @@ type HttpServerEntity struct {
 func NewHttpServerEntity(bindAddr netip.AddrPort, r *radio.Radio, ps *session.PduSessions) *HttpServerEntity {
 	c := cli.NewCli(r, ps)
 	gin.SetMode(gin.ReleaseMode)
-	h := gin.New()
-	h.Use(gin.Recovery())
-	h.Use(ginlogger.LoggingMiddleware)
+	h := ginlogger.Default()
 	h.GET("/status", Status)
 
 	// CLI
@@ -78,10 +76,10 @@ func (e *HttpServerEntity) Start(ctx context.Context) error {
 	go func(ctx context.Context) {
 		defer close(e.closed)
 		<-ctx.Done()
-		ctxShutdown, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctxShutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), 100*time.Millisecond)
 		defer cancel()
-		if err := e.srv.Shutdown(ctxShutdown); err != nil {
-			logrus.WithError(err).Info("HTTP Server Shutdown")
+		if err := e.srv.Shutdown(ctxShutdown); err == nil {
+			logrus.Info("HTTP Server Shutdown")
 		}
 	}(ctx)
 	return nil
