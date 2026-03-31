@@ -25,10 +25,10 @@ type Setup struct {
 }
 
 func NewSetup(config *config.GNBConfig) *Setup {
-	r := radio.NewRadio(config.Control.Uri, config.Ran.BindAddr, "go-github-nextmn-gnb-lite")
+	r := radio.NewRadio(config.Control.Uri, config.Ran.OneWayDelays.Data, config.Ran.BindAddr, "go-github-nextmn-gnb-lite")
 	psMan := session.NewPduSessionsManager(config.Gtp)
 	rDaemon := radio.NewRadioDaemon(r, psMan, config.Ran.BindAddr)
-	ps := session.NewPduSessions(config.Control.Uri, config.Cp.Uri, psMan, "go-github-nextmn-gnb-lite", config.Gtp)
+	ps := session.NewPduSessions(config.Control.Uri, config.Cp.Uri, config.Cp.OneWayDelay, config.Ran.OneWayDelays.Control, psMan, "go-github-nextmn-gnb-lite", config.Gtp)
 	return &Setup{
 		config:           config,
 		httpServerEntity: NewHttpServerEntity(config.Control.BindAddr, r, ps),

@@ -7,6 +7,7 @@ package session
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -17,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (s *PduSessions) HandoverCommand(c *gin.Context) {
+func (p *PduSessions) HandoverCommand(c *gin.Context) {
 	var ps n1n2.HandoverCommand
 	if err := c.BindJSON(&ps); err != nil {
 		logrus.WithError(err).Error("could not deserialize")
@@ -27,7 +28,7 @@ func (s *PduSessions) HandoverCommand(c *gin.Context) {
 	logrus.WithFields(logrus.Fields{
 		"ue": ps.UeCtrl.String(),
 	}).Info("New Handover Command")
-	go s.HandleHandoverCommand(ps)
+	go p.HandleHandoverCommand(ps)
 	c.JSON(http.StatusAccepted, jsonapi.Message{Message: "please refer to logs for more information"})
 }
 
@@ -35,19 +36,19 @@ func (s *PduSessions) HandoverCommand(c *gin.Context) {
 // Upon receiving an Handover Command, the source gNB configure temporary forwarding of DL traffic,
 // and forward the Handover Command to the UE.
 // PDU Session (including the forwarding of DL traffic) is removed with a timer.
-func (s *PduSessions) HandleHandoverCommand(ps n1n2.HandoverCommand) {
+func (p *PduSessions) HandleHandoverCommand(ps n1n2.HandoverCommand) {
 	// Add forwarder for downlink
 	for _, session := range ps.Sessions {
 		if session.ForwardDownlinkFteid == nil || session.DownlinkFteid == nil {
 			// TODO: notify CP of error
 			continue
 		}
-		s.manager.ForwardDownlink[session.DownlinkFteid.Teid] = session.ForwardDownlinkFteid
+		p.manager.ForwardDownlink[session.DownlinkFteid.Teid] = session.ForwardDownlinkFteid
 		// TODO: remove downlink forward with a timer
 		// TODO: remove pdu session after a timer
 	}
 
-	ctx := s.Context()
+	ctx := p.Context()
 	// Forward to UE
 	reqBody, err := json.Marshal(ps)
 	if err != nil {
@@ -59,11 +60,21 @@ func (s *PduSessions) HandleHandoverCommand(ps n1n2.HandoverCommand) {
 		logrus.WithError(err).Error("Could not create ps/handover-command")
 		return
 	}
-	req.Header.Set("User-Agent", s.UserAgent)
+	req.Header.Set("User-Agent", p.UserAgent)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	if _, err := s.Client.Do(req); err != nil {
-		logrus.WithError(err).Error("Could not send ps/handover-command")
-		return
+
+	ctxDelay, cancel := context.WithTimeout(ctx, p.UeDelay)
+	defer cancel()
+	select {
+	case <-ctxDelay.Done():
+		select {
+		case <-ctx.Done():
+			logrus.WithError(err).Error("Context was done before sending ps/handover-command")
+		default:
+			if _, err := p.Client.Do(req); err != nil {
+				logrus.WithError(err).Error("Could not send ps/handover-command")
+			}
+		}
 	}
 
 }

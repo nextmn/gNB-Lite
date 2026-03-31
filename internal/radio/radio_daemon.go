@@ -56,7 +56,7 @@ func (r *RadioDaemon) runUplinkDaemon(ctx context.Context, srv *net.UDPConn) err
 				logrus.WithError(err).Trace("error reading udp packet")
 				return err
 			}
-			logrus.Trace("received new packet from ue")
+			logrus.Trace("received new packet from UE")
 			r.PduSessionsManager.WriteUplink(ctx, buf[:n])
 		}
 	}
@@ -67,11 +67,11 @@ type DLPkt struct {
 	Payload []byte
 }
 
-func (r *RadioDaemon) WriteDownlink(payload []byte, ue jsonapi.ControlURI) error {
+func (r *RadioDaemon) WriteDownlink(ctx context.Context, payload []byte, ue jsonapi.ControlURI) error {
 	if r.srv == nil {
 		return ErrNilUdpConn
 	}
-	return r.radio.Write(payload, r.srv, ue)
+	return r.radio.Write(ctx, payload, r.srv, ue)
 }
 
 func (r *RadioDaemon) Start(ctx context.Context) error {
@@ -85,7 +85,7 @@ func (r *RadioDaemon) Start(ctx context.Context) error {
 	r.srv = srv
 	logrus.WithFields(logrus.Fields{
 		"bind-addr": r.gnbRanAddr,
-	}).Info("Starting Radio Simulatior")
+	}).Info("Starting Radio Simulator")
 	go func(ctx context.Context, srv *net.UDPConn) error {
 		if srv == nil {
 			return ErrNilUdpConn

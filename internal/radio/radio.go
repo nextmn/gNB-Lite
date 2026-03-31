@@ -6,10 +6,12 @@
 package radio
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/netip"
 	"sync"
+	"time"
 
 	"github.com/nextmn/gnb-lite/internal/common"
 
@@ -23,15 +25,17 @@ type Radio struct {
 	common.WithContext
 
 	peerMap   sync.Map // key:  UE Control URI (string), value: UE ran ip address
+	delay     time.Duration
 	Client    http.Client
 	Control   jsonapi.ControlURI
 	Data      netip.AddrPort
 	UserAgent string
 }
 
-func NewRadio(control jsonapi.ControlURI, data netip.AddrPort, userAgent string) *Radio {
+func NewRadio(control jsonapi.ControlURI, delay time.Duration, data netip.AddrPort, userAgent string) *Radio {
 	return &Radio{
 		peerMap:   sync.Map{},
+		delay:     delay,
 		Client:    http.Client{},
 		Control:   control,
 		Data:      data,
@@ -39,16 +43,29 @@ func NewRadio(control jsonapi.ControlURI, data netip.AddrPort, userAgent string)
 	}
 }
 
-func (r *Radio) Write(pkt []byte, srv *net.UDPConn, ue jsonapi.ControlURI) error {
+func (r *Radio) Write(ctx context.Context, pkt []byte, srv *net.UDPConn, ue jsonapi.ControlURI) error {
+	radioCtx := r.Context()
 	ueRan, ok := r.peerMap.Load(ue.String())
 	if !ok {
 		logrus.Trace("Unknown UE")
 		return ErrUnknownUE
 	}
 
-	_, err := srv.WriteToUDPAddrPort(pkt, ueRan.(netip.AddrPort))
+	ctxDelay, cancel := context.WithTimeout(radioCtx, r.delay)
+	defer cancel()
+	select {
+	case <-ctxDelay.Done():
+		select {
+		case <-radioCtx.Done():
+			return radioCtx.Err()
+		default:
+			_, err := srv.WriteToUDPAddrPort(pkt, ueRan.(netip.AddrPort))
+			return err
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 
-	return err
 }
 
 func (r *Radio) Register(e *gin.Engine) {

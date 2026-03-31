@@ -7,6 +7,7 @@ package session
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -17,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (s *PduSessions) HandoverRequest(c *gin.Context) {
+func (p *PduSessions) HandoverRequest(c *gin.Context) {
 	var ps n1n2.HandoverRequest
 	if err := c.BindJSON(&ps); err != nil {
 		logrus.WithError(err).Error("could not deserialize")
@@ -27,7 +28,7 @@ func (s *PduSessions) HandoverRequest(c *gin.Context) {
 	logrus.WithFields(logrus.Fields{
 		"ue": ps.UeCtrl.String(),
 	}).Info("New Handver Request")
-	go s.HandleHandoverRequest(ps)
+	go p.HandleHandoverRequest(ps)
 	c.JSON(http.StatusAccepted, jsonapi.Message{Message: "please refer to logs for more information"})
 }
 
@@ -36,15 +37,15 @@ func (s *PduSessions) HandoverRequest(c *gin.Context) {
 // and send it within an Handover Request Ack to the Control Plane.
 // UL FTEID is included in Handover Request and the session
 // can is pre-configured to be ready to be used as soon as Handover Notify is received
-func (s *PduSessions) HandleHandoverRequest(ps n1n2.HandoverRequest) {
-	ctx := s.Context()
+func (p *PduSessions) HandleHandoverRequest(ps n1n2.HandoverRequest) {
+	ctx := p.Context()
 
 	// allocate DL FTEIDs
 	rsp_sessions := make([]n1n2.Session, len(ps.Sessions))
 	copy(rsp_sessions, ps.Sessions)
 	for i, session := range ps.Sessions {
 		// allocate DL FTEID, and configure UL FTEID
-		downlinkFTeid, err := s.manager.NewPduSession(ctx, session.Addr, ps.UeCtrl, session.UplinkFteid)
+		downlinkFTeid, err := p.manager.NewPduSession(ctx, session.Addr, ps.UeCtrl, session.UplinkFteid)
 		if err != nil {
 			logrus.WithError(err).Error("Could create PDU Session")
 			// TODO: notify CP of the error
@@ -69,15 +70,25 @@ func (s *PduSessions) HandleHandoverRequest(ps n1n2.HandoverRequest) {
 		logrus.WithError(err).Error("Could not marshal n1n2.HandoverRequestAck")
 		return
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Cp.JoinPath("ps/handover-request-ack").String(), bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.Cp.JoinPath("ps/handover-request-ack").String(), bytes.NewBuffer(reqBody))
 	if err != nil {
 		logrus.WithError(err).Error("Could not create ps/handover-request-ack")
 		return
 	}
-	req.Header.Set("User-Agent", s.UserAgent)
+	req.Header.Set("User-Agent", p.UserAgent)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	if _, err := s.Client.Do(req); err != nil {
-		logrus.WithError(err).Error("Could not send ps/handover-request-ack")
-		return
+
+	ctxDelay, cancel := context.WithTimeout(ctx, p.CpDelay)
+	defer cancel()
+	select {
+	case <-ctxDelay.Done():
+		select {
+		case <-ctx.Done():
+			logrus.WithError(err).Error("Context was done before sending ps/handover-request-ack")
+		default:
+			if _, err := p.Client.Do(req); err != nil {
+				logrus.WithError(err).Error("Could not send ps/handover-request-ack")
+			}
+		}
 	}
 }

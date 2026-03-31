@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/netip"
 	"sync"
+	"time"
 
 	"github.com/nextmn/gnb-lite/internal/common"
 
@@ -25,17 +26,21 @@ type PduSessions struct {
 	Client         http.Client
 	Control        jsonapi.ControlURI
 	Cp             jsonapi.ControlURI
+	CpDelay        time.Duration
+	UeDelay        time.Duration
 	GnbGtp         netip.Addr
 	manager        *PduSessionsManager
 }
 
-func NewPduSessions(control jsonapi.ControlURI, cp jsonapi.ControlURI, manager *PduSessionsManager, userAgent string, gnbGtp netip.Addr) *PduSessions {
+func NewPduSessions(control jsonapi.ControlURI, cp jsonapi.ControlURI, cpDelay time.Duration, ueDelay time.Duration, manager *PduSessionsManager, userAgent string, gnbGtp netip.Addr) *PduSessions {
 	return &PduSessions{
 		Client:         http.Client{},
 		PduSessionsMap: sync.Map{},
 		UserAgent:      userAgent,
 		Control:        control,
 		Cp:             cp,
+		CpDelay:        cpDelay,
+		UeDelay:        ueDelay,
 		GnbGtp:         gnbGtp,
 		manager:        manager,
 	}

@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/nextmn/json-api/jsonapi"
 
@@ -45,10 +46,17 @@ type Control struct {
 	BindAddr netip.AddrPort     `yaml:"bind-addr"` // in the form `ip:port`
 }
 
+type OneWayDelays struct {
+	Control time.Duration `yaml:"control"`
+	Data    time.Duration `yaml:"data"`
+}
+
 type Ran struct {
-	BindAddr netip.AddrPort `yaml:"bind-addr"`
+	BindAddr     netip.AddrPort `yaml:"bind-addr"`
+	OneWayDelays OneWayDelays   `yaml:"one-way-delays"` // one-way-delays used for downlink
 }
 
 type Cp struct {
-	Uri jsonapi.ControlURI `yaml:"uri"` // uri of the control plane
+	Uri         jsonapi.ControlURI `yaml:"uri"` // uri of the control plane
+	OneWayDelay time.Duration      `yaml:"one-way-delay"`
 }

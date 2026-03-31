@@ -73,7 +73,7 @@ func (gtp *Gtp) tpduHandler(ctx context.Context, c gtpv1.Conn, senderAddr net.Ad
 		return err
 	}
 	packet := msg.(*message.TPDU).Decapsulate()
-	return gtp.rDaemon.WriteDownlink(packet, ue)
+	return gtp.rDaemon.WriteDownlink(ctx, packet, ue)
 }
 
 func (gtp *Gtp) WaitShutdown(ctx context.Context) error {

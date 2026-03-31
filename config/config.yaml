@@ -3,8 +3,14 @@ control:
   bind-addr: "192.0.2.2:8080"
 ran:
   bind-addr: "198.51.100.2:1234"
+  one-way-delays:
+    control: "7ms"
+    data: "7ms"
+
 cp:
   uri: "http://192.0.2.3:8080"
+  one-way-delay: "9ms"
+
 gtp: "198.51.100.10"
 
 logger:

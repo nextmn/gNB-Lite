@@ -7,6 +7,7 @@ package session
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -44,7 +45,10 @@ func (p *PduSessions) HandleN2EstablishmentRequest(ps n1n2.N2PduSessionReqMsg) {
 		return
 	}
 
-	// send PseAccept to UE
+	// send PseAccept to UE: this single request is an abstraction of much more complicated NR-RRC that configures the UE
+	// TODO: we don't emulate latency here because there is several round trips while we do it in a single message
+	// In consequence, PDU Session establishment take less time than in real life
+	// (but I indented to emulate delays only for Handover scenario, so this is fine)
 	reqBody, err := json.Marshal(ps.UeInfo)
 	if err != nil {
 		logrus.WithError(err).Error("Could not marshal UeInfo")
@@ -63,6 +67,7 @@ func (p *PduSessions) HandleN2EstablishmentRequest(ps n1n2.N2PduSessionReqMsg) {
 		return
 	}
 
+	// At this point, we consider the UE to be configured, and we can confirm the Session establishment to CP
 	psresp := n1n2.N2PduSessionRespMsg{
 		UeInfo:        ps.UeInfo,
 		DownlinkFteid: *downlinkFteid,
@@ -70,7 +75,7 @@ func (p *PduSessions) HandleN2EstablishmentRequest(ps n1n2.N2PduSessionReqMsg) {
 	// send N2PsResp to CP (with dl fteid)
 	n2reqBody, err := json.Marshal(psresp)
 	if err != nil {
-		logrus.WithError(err).Error("Could not marshal n1n2.N2PduSessionRespMs")
+		logrus.WithError(err).Error("Could not marshal n1n2.N2PduSessionRespMsg")
 		return
 	}
 	req2, err := http.NewRequestWithContext(ctx, http.MethodPost, ps.Cp.JoinPath("ps/n2-establishment-response").String(), bytes.NewBuffer(n2reqBody))
@@ -80,9 +85,20 @@ func (p *PduSessions) HandleN2EstablishmentRequest(ps n1n2.N2PduSessionReqMsg) {
 	}
 	req2.Header.Set("User-Agent", p.UserAgent)
 	req2.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	if _, err := p.Client.Do(req2); err != nil {
-		logrus.WithError(err).Error("Could not create send request for ps/n2-establishment-response")
-		return
+
+	ctxDelay, cancel := context.WithTimeout(ctx, p.CpDelay)
+	defer cancel()
+	select {
+	case <-ctxDelay.Done():
+		select {
+		case <-ctx.Done():
+			logrus.WithError(err).Error("Context was done before sending ps/n2-establishment-response")
+		default:
+
+			if _, err := p.Client.Do(req2); err != nil {
+				logrus.WithError(err).Error("Could not send ps/n2-establishment-response")
+			}
+		}
 	}
 
 }
