@@ -7,6 +7,8 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
 	"time"
 
 	"github.com/nextmn/gnb-lite/internal/config"
@@ -22,6 +24,7 @@ type Setup struct {
 	rDaemon          *radio.RadioDaemon
 	psMan            *session.PduSessionsManager
 	gtp              *gtp.Gtp
+	routesInit       int // TODO: docker-setup
 }
 
 func NewSetup(config *config.GNBConfig) *Setup {
@@ -38,11 +41,8 @@ func NewSetup(config *config.GNBConfig) *Setup {
 		gtp:              gtp.NewGtp(config.Gtp, psMan, rDaemon),
 	}
 }
-func (s *Setup) Init(ctx context.Context) error {
-	return nil
-}
-
 func (s *Setup) waitShutdown(ctx context.Context) {
+	// TODO: use waitGroup
 	if s.httpServerEntity != nil {
 		s.httpServerEntity.WaitShutdown(ctx)
 	}
@@ -51,6 +51,9 @@ func (s *Setup) waitShutdown(ctx context.Context) {
 	}
 	if s.gtp != nil {
 		s.gtp.WaitShutdown(ctx)
+	}
+	if s.routesInit > 0 {
+		s.cleanupRoutes(ctx)
 	}
 }
 
@@ -61,6 +64,10 @@ func (s *Setup) Run(ctx context.Context) error {
 		defer cancel()
 		s.waitShutdown(ctxShutdown)
 	}()
+
+	if err := s.createRoutes(ctx); err != nil {
+		return err
+	}
 
 	if err := s.rDaemon.Start(ctx); err != nil {
 		return err
@@ -73,5 +80,43 @@ func (s *Setup) Run(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
+	return nil
+}
+
+func (s *Setup) createRoutes(ctx context.Context) error {
+	// TODO: move this into github.com/nextmn/docker-setup
+	for _, r := range s.config.DockerSetup.Routes {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			cmd := exec.CommandContext(ctx, "ip", "route", "add", r.Prefix.String(), "via", r.Gateway.WithZone("").String(), "proto", "static")
+			cmd.Env = []string{}
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("error running %s: %w", cmd.Args, err)
+			}
+			s.routesInit++
+		}
+	}
+	return nil
+}
+
+func (s *Setup) cleanupRoutes(ctx context.Context) error {
+	// TODO: move this into github.com/nextmn/docker-setup
+	for i, r := range s.config.DockerSetup.Routes {
+		if i >= s.routesInit { // cleanup only initialized routes
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			cmd := exec.CommandContext(ctx, "ip", "route", "del", r.Prefix.String(), "via", r.Gateway.WithZone("").String())
+			cmd.Env = []string{}
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("error running %s: %w", cmd.Args, err)
+			}
+		}
+	}
 	return nil
 }

@@ -15,3 +15,8 @@ gtp: "198.51.100.10"
 
 logger:
   level: "trace"
+
+docker-setup:
+  routes:
+    - prefix: "198.51.100.10/32"
+      gateway: "10.0.0.1"

@@ -34,11 +34,12 @@ func ParseConf(file string) (*GNBConfig, error) {
 }
 
 type GNBConfig struct {
-	Control Control    `yaml:"control"`
-	Ran     Ran        `yaml:"ran"`
-	Cp      Cp         `yaml:"cp"`
-	Logger  *Logger    `yaml:"logger,omitempty"`
-	Gtp     netip.Addr `yaml:"gtp"`
+	Control     Control     `yaml:"control"`
+	Ran         Ran         `yaml:"ran"`
+	Cp          Cp          `yaml:"cp"`
+	Logger      *Logger     `yaml:"logger,omitempty"`
+	Gtp         netip.Addr  `yaml:"gtp"`
+	DockerSetup DockerSetup `yaml:"docker-setup"`
 }
 
 type Control struct {
@@ -59,4 +60,14 @@ type Ran struct {
 type Cp struct {
 	Uri         jsonapi.ControlURI `yaml:"uri"` // uri of the control plane
 	OneWayDelay time.Duration      `yaml:"one-way-delay"`
+}
+
+// TODO: move this into github.com/nextmn/docker-setup
+type DockerSetup struct {
+	Routes []Route `yaml:"routes"`
+}
+
+type Route struct {
+	Prefix  netip.Prefix `yaml:"prefix"`
+	Gateway netip.Addr   `yaml:"gateway"`
 }

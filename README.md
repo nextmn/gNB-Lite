@@ -12,6 +12,9 @@ If you don't need to use handover procedures, consider using [UERANSIM](https://
 - golang
 - make (optional)
 
+### Runtime dependencies
+- iproute2
+
 ### Build and install
 Simply run `make build` and `make install`.
 
