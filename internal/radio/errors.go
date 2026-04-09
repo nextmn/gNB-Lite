@@ -10,6 +10,8 @@ import (
 )
 
 var (
-	ErrNilUdpConn = errors.New("nil UDP Connection")
-	ErrUnknownUE  = errors.New("unknown UE")
+	// Programming error (used for panicking
+	errNilUdpConn = errors.New("nil UDP Connection")
+
+	ErrUnknownUE = errors.New("unknown UE")
 )

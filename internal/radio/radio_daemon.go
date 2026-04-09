@@ -42,8 +42,7 @@ func NewRadioDaemon(radio *Radio, psMan *session.PduSessionsManager, gnbRanAddr 
 
 func (r *RadioDaemon) runUplinkDaemon(ctx context.Context, srv *net.UDPConn) error {
 	if srv == nil {
-		logrus.Error("nil server")
-		return ErrNilUdpConn
+		panic(errNilUdpConn)
 	}
 	for {
 		select {
@@ -69,15 +68,13 @@ type DLPkt struct {
 
 func (r *RadioDaemon) WriteDownlink(ctx context.Context, payload []byte, ue jsonapi.ControlURI) error {
 	if r.srv == nil {
-		return ErrNilUdpConn
+		panic(errNilUdpConn)
 	}
 	return r.radio.Write(ctx, payload, r.srv, ue)
 }
 
 func (r *RadioDaemon) Start(ctx context.Context) error {
-	if err := r.radio.InitContext(ctx); err != nil {
-		return err
-	}
+	r.radio.InitContext(ctx)
 	srv, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(r.gnbRanAddr))
 	if err != nil {
 		return err
@@ -88,7 +85,7 @@ func (r *RadioDaemon) Start(ctx context.Context) error {
 	}).Info("Starting Radio Simulator")
 	go func(ctx context.Context, srv *net.UDPConn) error {
 		if srv == nil {
-			return ErrNilUdpConn
+			panic(errNilUdpConn)
 		}
 		<-ctx.Done()
 		srv.Close()
