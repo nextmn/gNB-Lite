@@ -3,14 +3,14 @@
 # found in the LICENSE file.
 # SPDX-License-Identifier: MIT
 
-FROM golang:1.26.1 AS builder
+FROM golang:1.26.6 AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY . .
 RUN CGO_ENABLED=0 go build -o /usr/local/bin/gnb-lite
 
-FROM alpine:3.23.3
+FROM alpine:3.24.1
 RUN apk add --no-cache iptables iproute2
 COPY --from=builder /usr/local/bin/gnb-lite /usr/local/bin/gnb-lite
 ENTRYPOINT ["gnb-lite"]
