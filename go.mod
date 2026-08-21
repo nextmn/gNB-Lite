@@ -1,6 +1,6 @@
 module github.com/nextmn/gnb-lite
 
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/gin-gonic/gin v1.12.0
@@ -10,7 +10,7 @@ require (
 	github.com/sirupsen/logrus v1.10.1
 	github.com/urfave/cli/v3 v3.11.0
 	github.com/wmnsk/go-gtp v0.8.12
-	gopkg.in/yaml.v3 v3.0.1
+	go.yaml.in/yaml/v3 v3.0.5
 )
 
 require (
