@@ -90,14 +90,12 @@ func (p *PduSessions) HandleN2EstablishmentRequest(ps n1n2.N2PduSessionReqMsg) {
 	defer cancel()
 	select {
 	case <-ctxDelay.Done():
-		select {
-		case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
 			logrus.WithError(err).Error("Context was done before sending ps/n2-establishment-response")
-		default:
-
-			if _, err := p.Client.Do(req2); err != nil {
-				logrus.WithError(err).Error("Could not send ps/n2-establishment-response")
-			}
+			return
+		}
+		if _, err := p.Client.Do(req2); err != nil {
+			logrus.WithError(err).Error("Could not send ps/n2-establishment-response")
 		}
 	}
 

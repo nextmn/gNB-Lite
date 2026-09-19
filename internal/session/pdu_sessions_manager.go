@@ -160,18 +160,16 @@ func (p *PduSessionsManager) NewPduSession(ctx context.Context, ueIpAddr netip.A
 func (p *PduSessionsManager) newTeidDl(ctx context.Context, ueControlURI jsonapi.ControlURI) (uint32, error) {
 	// teid are attributed randomly, and unique per pdu session
 	for {
-		select {
-		case <-ctx.Done():
-			return 0, ctx.Err()
-		default:
-			teid := rand.Uint32()
-			if teid == 0 {
-				continue // bad luck :(
-			}
-			if _, exists := p.Downlink[teid]; !exists {
-				p.Downlink[teid] = ueControlURI
-				return teid, nil
-			}
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
+		teid := rand.Uint32()
+		if teid == 0 {
+			continue // bad luck :(
+		}
+		if _, exists := p.Downlink[teid]; !exists {
+			p.Downlink[teid] = ueControlURI
+			return teid, nil
 		}
 	}
 }

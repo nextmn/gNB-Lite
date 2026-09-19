@@ -54,13 +54,12 @@ func (p *PduSessions) HandleEstablishmentRequest(ps n1n2.PduSessionEstabReqMsg) 
 	defer cancel()
 	select {
 	case <-ctxDelay.Done():
-		select {
-		case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
 			logrus.WithError(err).Error("Context was done before sending ps/establishment-request")
-		default:
-			if _, err := p.Client.Do(req); err != nil {
-				logrus.WithError(err).Error("Could not send ps/establishment-request")
-			}
+			return
+		}
+		if _, err := p.Client.Do(req); err != nil {
+			logrus.WithError(err).Error("Could not send ps/establishment-request")
 		}
 	}
 }

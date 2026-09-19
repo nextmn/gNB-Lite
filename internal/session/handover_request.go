@@ -82,13 +82,12 @@ func (p *PduSessions) HandleHandoverRequest(ps n1n2.HandoverRequest) {
 	defer cancel()
 	select {
 	case <-ctxDelay.Done():
-		select {
-		case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
 			logrus.WithError(err).Error("Context was done before sending ps/handover-request-ack")
-		default:
-			if _, err := p.Client.Do(req); err != nil {
-				logrus.WithError(err).Error("Could not send ps/handover-request-ack")
-			}
+			return
+		}
+		if _, err := p.Client.Do(req); err != nil {
+			logrus.WithError(err).Error("Could not send ps/handover-request-ack")
 		}
 	}
 }

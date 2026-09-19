@@ -55,13 +55,14 @@ func (r *Radio) Write(ctx context.Context, pkt []byte, srv *net.UDPConn, ue json
 	defer cancel()
 	select {
 	case <-ctxDelay.Done():
-		select {
-		case <-radioCtx.Done():
-			return radioCtx.Err()
-		default:
-			_, err := srv.WriteToUDPAddrPort(pkt, ueRan.(netip.AddrPort))
+		if err := radioCtx.Err(); err != nil {
 			return err
 		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		_, err := srv.WriteToUDPAddrPort(pkt, ueRan.(netip.AddrPort))
+		return err
 	case <-ctx.Done():
 		return ctx.Err()
 	}

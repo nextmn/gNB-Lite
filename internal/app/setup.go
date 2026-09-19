@@ -86,17 +86,15 @@ func (s *Setup) Run(ctx context.Context) error {
 func (s *Setup) createRoutes(ctx context.Context) error {
 	// TODO: move this into github.com/nextmn/docker-setup
 	for _, r := range s.config.DockerSetup.Routes {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			cmd := exec.CommandContext(ctx, "ip", "route", "add", r.Prefix.String(), "via", r.Gateway.WithZone("").String(), "proto", "static")
-			cmd.Env = []string{}
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("error running %s: %w", cmd.Args, err)
-			}
-			s.routesInit++
+		if err := ctx.Err(); err != nil {
+			return err
 		}
+		cmd := exec.CommandContext(ctx, "ip", "route", "add", r.Prefix.String(), "via", r.Gateway.WithZone("").String(), "proto", "static")
+		cmd.Env = []string{}
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("error running %s: %w", cmd.Args, err)
+		}
+		s.routesInit++
 	}
 	return nil
 }
@@ -107,15 +105,13 @@ func (s *Setup) cleanupRoutes(ctx context.Context) error {
 		if i >= s.routesInit { // cleanup only initialized routes
 			return nil
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			cmd := exec.CommandContext(ctx, "ip", "route", "del", r.Prefix.String(), "via", r.Gateway.WithZone("").String())
-			cmd.Env = []string{}
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("error running %s: %w", cmd.Args, err)
-			}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		cmd := exec.CommandContext(ctx, "ip", "route", "del", r.Prefix.String(), "via", r.Gateway.WithZone("").String())
+		cmd.Env = []string{}
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("error running %s: %w", cmd.Args, err)
 		}
 	}
 	return nil

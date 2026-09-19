@@ -45,19 +45,17 @@ func (r *RadioDaemon) runUplinkDaemon(ctx context.Context, srv *net.UDPConn) err
 		panic(errNilUdpConn)
 	}
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			buf := make([]byte, TUN_MTU)
-			n, err := srv.Read(buf)
-			if err != nil {
-				logrus.WithError(err).Trace("error reading udp packet")
-				return err
-			}
-			logrus.Trace("received new packet from UE")
-			r.PduSessionsManager.WriteUplink(ctx, buf[:n])
+		if err := ctx.Err(); err != nil {
+			return err
 		}
+		buf := make([]byte, TUN_MTU)
+		n, err := srv.Read(buf)
+		if err != nil {
+			logrus.WithError(err).Trace("error reading udp packet")
+			return err
+		}
+		logrus.Trace("received new packet from UE")
+		r.PduSessionsManager.WriteUplink(ctx, buf[:n])
 	}
 }
 
