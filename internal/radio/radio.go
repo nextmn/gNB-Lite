@@ -17,7 +17,6 @@ import (
 
 	"github.com/nextmn/json-api/jsonapi"
 
-	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -69,6 +68,8 @@ func (r *Radio) Write(ctx context.Context, pkt []byte, srv *net.UDPConn, ue json
 
 }
 
-func (r *Radio) Register(e *gin.Engine) {
-	e.POST("/radio/peer", r.Peer)
+func (r *Radio) Handler() http.Handler {
+	sm := http.NewServeMux()
+	sm.HandleFunc("POST /peer", r.Peer)
+	return sm
 }

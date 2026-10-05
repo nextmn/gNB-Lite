@@ -18,13 +18,13 @@ import (
 )
 
 type Setup struct {
-	config           *config.GNBConfig
-	httpServerEntity *HttpServerEntity
-	radio            *radio.Radio
-	rDaemon          *radio.RadioDaemon
-	psMan            *session.PduSessionsManager
-	gtp              *gtp.Gtp
-	routesInit       int // TODO: docker-setup
+	config     *config.GNBConfig
+	httpServer *HttpServer
+	radio      *radio.Radio
+	rDaemon    *radio.RadioDaemon
+	psMan      *session.PduSessionsManager
+	gtp        *gtp.Gtp
+	routesInit int // TODO: docker-setup
 }
 
 func NewSetup(config *config.GNBConfig) *Setup {
@@ -33,18 +33,18 @@ func NewSetup(config *config.GNBConfig) *Setup {
 	rDaemon := radio.NewRadioDaemon(r, psMan, config.Ran.BindAddr)
 	ps := session.NewPduSessions(config.Control.Uri, config.Cp.Uri, config.Cp.OneWayDelay, config.Ran.OneWayDelays.Control, psMan, "go-github-nextmn-gnb-lite", config.Gtp)
 	return &Setup{
-		config:           config,
-		httpServerEntity: NewHttpServerEntity(config.Control.BindAddr, r, ps),
-		radio:            r,
-		rDaemon:          rDaemon,
-		psMan:            psMan,
-		gtp:              gtp.NewGtp(config.Gtp, psMan, rDaemon),
+		config:     config,
+		httpServer: NewHttpServer(config.Control.BindAddr, r, ps),
+		radio:      r,
+		rDaemon:    rDaemon,
+		psMan:      psMan,
+		gtp:        gtp.NewGtp(config.Gtp, psMan, rDaemon),
 	}
 }
 func (s *Setup) waitShutdown(ctx context.Context) {
 	// TODO: use waitGroup
-	if s.httpServerEntity != nil {
-		s.httpServerEntity.WaitShutdown(ctx)
+	if s.httpServer != nil {
+		s.httpServer.WaitShutdown(ctx)
 	}
 	if s.rDaemon != nil {
 		s.rDaemon.WaitShutdown(ctx)
@@ -75,7 +75,7 @@ func (s *Setup) Run(ctx context.Context) error {
 	if err := s.gtp.Start(ctx); err != nil {
 		return err
 	}
-	if err := s.httpServerEntity.Start(ctx); err != nil {
+	if err := s.httpServer.Start(ctx); err != nil {
 		return err
 	}
 

@@ -6,10 +6,10 @@
 package cli
 
 import (
+	"net/http"
+
 	"github.com/nextmn/gnb-lite/internal/radio"
 	"github.com/nextmn/gnb-lite/internal/session"
-
-	"github.com/gin-gonic/gin"
 )
 
 type Cli struct {
@@ -17,13 +17,8 @@ type Cli struct {
 	PduSessions *session.PduSessions
 }
 
-func NewCli(r *radio.Radio, p *session.PduSessions) *Cli {
-	return &Cli{
-		Radio:       r,
-		PduSessions: p,
-	}
-}
-
-func (cli *Cli) Register(e *gin.Engine) {
-	e.POST("/cli/ps/handover", cli.PsHandover)
+func (cli Cli) Handler() http.Handler {
+	sm := http.NewServeMux()
+	sm.HandleFunc("POST /ps/handover", cli.PsHandover)
+	return sm
 }

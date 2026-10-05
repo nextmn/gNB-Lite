@@ -8,28 +8,31 @@ package session
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"net/http"
 
 	"github.com/nextmn/json-api/jsonapi"
 	"github.com/nextmn/json-api/jsonapi/n1n2"
 
-	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
-func (p *PduSessions) HandoverCommand(c *gin.Context) {
+func (p *PduSessions) HandoverCommand(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Cache-Control", "no-cache")
 	var ps n1n2.HandoverCommand
-	if err := c.BindJSON(&ps); err != nil {
+	if err := json.UnmarshalRead(req.Body, &ps); err != nil {
 		logrus.WithError(err).Error("could not deserialize")
-		c.JSON(http.StatusBadRequest, jsonapi.MessageWithError{Message: "could not deserialize", Error: err})
+		w.WriteHeader(http.StatusBadRequest)
+		json.MarshalWrite(w, jsonapi.MessageWithError{Message: "could not deserialize", Error: err})
 		return
 	}
 	logrus.WithFields(logrus.Fields{
 		"ue": ps.UeCtrl.String(),
 	}).Info("New Handover Command")
 	go p.HandleHandoverCommand(ps)
-	c.JSON(http.StatusAccepted, jsonapi.Message{Message: "please refer to logs for more information"})
+	w.WriteHeader(http.StatusAccepted)
+	json.MarshalWrite(w, jsonapi.Message{Message: "please refer to logs for more information"})
 }
 
 // Handover Command is send to the source gNB by the Control Plane.
