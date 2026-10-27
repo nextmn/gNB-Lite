@@ -54,14 +54,12 @@ func (p *PduSessions) HandleEstablishmentRequest(ps n1n2.PduSessionEstabReqMsg) 
 
 	ctxDelay, cancel := context.WithTimeout(ctx, p.CpDelay)
 	defer cancel()
-	select {
-	case <-ctxDelay.Done():
-		if err := ctx.Err(); err != nil {
-			logrus.WithError(err).Error("Context was done before sending ps/establishment-request")
-			return
-		}
-		if _, err := p.Client.Do(req); err != nil {
-			logrus.WithError(err).Error("Could not send ps/establishment-request")
-		}
+	<-ctxDelay.Done()
+	if err := ctx.Err(); err != nil {
+		logrus.WithError(err).Error("Context was done before sending ps/establishment-request")
+		return
+	}
+	if _, err := p.Client.Do(req); err != nil {
+		logrus.WithError(err).Error("Could not send ps/establishment-request")
 	}
 }

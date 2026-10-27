@@ -66,14 +66,12 @@ func (cli Cli) HandlePsHandover(ps PsHandover) {
 
 	ctxDelay, cancel := context.WithTimeout(ctx, cli.PduSessions.CpDelay)
 	defer cancel()
-	select {
-	case <-ctxDelay.Done():
-		if err := ctx.Err(); err != nil {
-			logrus.WithError(ctx.Err()).Error("Context was done before sending ps/handover-required")
-			return
-		}
-		if _, err := cli.PduSessions.Client.Do(req); err != nil {
-			logrus.WithError(err).Error("Could not send ps/handover-required")
-		}
+	<-ctxDelay.Done()
+	if err := ctx.Err(); err != nil {
+		logrus.WithError(ctx.Err()).Error("Context was done before sending ps/handover-required")
+		return
+	}
+	if _, err := cli.PduSessions.Client.Do(req); err != nil {
+		logrus.WithError(err).Error("Could not send ps/handover-required")
 	}
 }
